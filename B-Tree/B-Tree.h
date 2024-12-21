@@ -2,17 +2,6 @@
 
 const int MIN_DEGREE = 3;
 
-class BTree{
-    private:
-        Node* root;
-        int depth;
-    public:
-        Node* searchNodeKey(Node* nodeToSearch, int keyToSearch);
-        Node* splitRoot(BTree tree);
-        void splitChild(Node* nonfullNode, int indexOfFull);
-        void insertNonFull(Node* nodeToInsertIn, int keyToInsert);
-};
-
 class Node{
     public:
         int num_keys;
@@ -25,4 +14,23 @@ class Node{
             keys = new int[2*MIN_DEGREE - 1];
             children = new Node*[2*MIN_DEGREE];
         }
+};
+
+class BTree{
+    public:
+        Node* root;
+        int depth;
+
+        BTree();
+
+        Node* searchNodeKey(Node* nodeToSearch, int keyToSearch);
+
+        Node* splitRoot(BTree* tree);
+        void splitChild(Node* nonfullNode, int indexOfFull);
+        void insertNonFull(Node* nodeToInsertIn, int keyToInsert);
+        void insert(BTree* tree, int keyToInsert);
+
+        void display(Node *x, int indent);
+        void inorderDisplay(Node *x);
+        void indentedDisplay();
 };
