@@ -1,5 +1,6 @@
 #include "B-Tree.h"
 #include <iostream>
+#include <fstream>
 
 // B-Tree field
 
@@ -8,12 +9,44 @@ BTree::BTree(){
     // diskWrite(root);
 }
 
-/*
-    Iterates through each key starting from root. 
-    If the key is found and the position is less that x.n, return the node.
-    If the key is not found and the node is a leaf, return NULL.
-    Otherwise, recursively pass the i-th child.
-*/
+void writeNodeKeys(Node* x, std::ofstream& file){
+    file << "\tnode" << x->unique_id << " [label=\" ";
+        for(auto i = 0; i < x->num_keys; i++){
+            if(i == x->num_keys - 1) {
+                file << x->keys[i];
+                continue;
+            }
+            file << x->keys[i] << " | ";
+        }
+        for(auto i = 2*MIN_DEGREE - 1; i > x->num_keys; i--){
+            file << "|";
+        }
+        file << "\"]" << std::endl;
+}
+
+void visualizeHelper(Node* x, std::ofstream& file){
+    if(x == nullptr){
+        return;
+    }
+    if(x->isLeaf){
+        writeNodeKeys(x, file);
+        return;
+    }
+    for(auto i = 0; i < x->num_keys+1; i++){
+        visualizeHelper(x->children[i], file);
+    }
+    writeNodeKeys(x, file);
+}
+
+void BTree::visualize(Node* x, std::string filename){
+    std::ofstream file;
+    file.open(filename);
+    file << "digraph G {" << std::endl;
+    file << "\tnode [shape = record,height = .1]" << std::endl;
+    visualizeHelper(x, file);
+    file << "}" << std::endl;
+    file.close();
+}
 
 void BTree::display(Node *x, int indent)
 {
@@ -49,6 +82,13 @@ void BTree::indentedDisplay()
     display(root, 0);
 }
 
+/*
+    Iterates through each key starting from root. 
+    If the key is found and the position is less that x.n, return the node.
+    If the key is not found and the node is a leaf, return NULL.
+    Otherwise, recursively pass the i-th child.
+*/
+
 Node* BTree::searchNodeKey(Node* nodeToSearch, int keyToSearch){
     auto i = 0;
     while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
@@ -61,6 +101,14 @@ Node* BTree::searchNodeKey(Node* nodeToSearch, int keyToSearch){
         return nullptr;
     }
     return searchNodeKey(nodeToSearch->children[i], keyToSearch);
+}
+
+int findKey(Node* nodeToSearch, int keyToSearch){
+    auto i = 0;
+    while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
+        i++;
+    }
+    return i;
 }
 
 
@@ -91,12 +139,12 @@ void BTree::splitChild(Node* nonfullNode, int indexOfFull){
 }
 
 
-Node* BTree::splitRoot(BTree* tree){
+Node* BTree::splitRoot(){
     Node* newRoot = new Node;
     newRoot->isLeaf = false;
     newRoot->num_keys = 0;
-    newRoot->children[0] = tree->root;
-    tree->root = newRoot;
+    newRoot->children[0] = root;
+    root = newRoot;
     splitChild(newRoot, 0);
     return newRoot;
 }
@@ -127,13 +175,13 @@ void BTree::insertNonFull(Node* nodeToInsertIn, int keyToInsert){
     }
 }
 
-void BTree::insert(BTree* tree, int keyToInsert){
-    Node* root = tree->root;
-    if(root->num_keys == 2*MIN_DEGREE - 1){
-        Node* newRoot = splitRoot(tree);
+void BTree::insert(int keyToInsert){
+    Node* currentRoot = root;
+    if(currentRoot->num_keys == 2*MIN_DEGREE - 1){
+        Node* newRoot = splitRoot();
         insertNonFull(newRoot, keyToInsert);
     }
     else{
-        insertNonFull(root, keyToInsert);
+        insertNonFull(currentRoot, keyToInsert);
     }
 }
