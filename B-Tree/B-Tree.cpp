@@ -24,6 +24,13 @@ void writeNodeKeys(Node* x, std::ofstream& file){
         file << "\"]" << std::endl;
 }
 
+void writeNodeEdges(Node* x, std::ofstream& file){
+    for(auto i = 0; i < x->num_keys + 1; i++){
+        file << "\tnode" << x->unique_id << " -> ";
+        file << "\tnode" << x->children[i]->unique_id << std::endl;
+    }
+}
+
 void visualizeHelper(Node* x, std::ofstream& file){
     if(x == nullptr){
         return;
@@ -36,6 +43,7 @@ void visualizeHelper(Node* x, std::ofstream& file){
         visualizeHelper(x->children[i], file);
     }
     writeNodeKeys(x, file);
+    writeNodeEdges(x, file);
 }
 
 void BTree::visualize(Node* x, std::string filename){

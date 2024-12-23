@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-const int MIN_DEGREE = 3;
+const int MIN_DEGREE = 2;
 
 class Node{
     public:
