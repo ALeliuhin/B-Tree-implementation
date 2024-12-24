@@ -2,12 +2,17 @@
 #include <iostream>
 #include <fstream>
 
-// B-Tree field
-
+/*
+    Constructor
+*/
 BTree::BTree(){
     root = new Node; 
     // diskWrite(root);
 }
+
+/*
+    Functions to store nodes and edges in .dot format
+*/
 
 void writeNodeKeys(Node* x, std::ofstream& file){
     file << "\tnode" << x->unique_id << " [label=\" ";
@@ -56,6 +61,10 @@ void BTree::visualize(Node* x, std::string filename){
     file.close();
 }
 
+/*
+    Functions to display the nodes in terminal
+*/
+
 void BTree::display(Node *x, int indent)
 {
     if (x == nullptr)
@@ -88,35 +97,6 @@ void BTree::indentedDisplay()
 {
     std::cout << "The B-tree is" << std::endl;
     display(root, 0);
-}
-
-/*
-    Iterates through each key starting from root. 
-    If the key is found and the position is less that x.n, return the node.
-    If the key is not found and the node is a leaf, return NULL.
-    Otherwise, recursively pass the i-th child.
-*/
-
-Node* BTree::searchNodeKey(Node* nodeToSearch, int keyToSearch){
-    auto i = 0;
-    while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
-        i++;
-    }
-    if(i < nodeToSearch->num_keys && keyToSearch == nodeToSearch->keys[i]){
-        return nodeToSearch;
-    }
-    else if(nodeToSearch->isLeaf){
-        return nullptr;
-    }
-    return searchNodeKey(nodeToSearch->children[i], keyToSearch);
-}
-
-int findKey(Node* nodeToSearch, int keyToSearch){
-    auto i = 0;
-    while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
-        i++;
-    }
-    return i;
 }
 
 
@@ -192,4 +172,190 @@ void BTree::insert(int keyToInsert){
     else{
         insertNonFull(currentRoot, keyToInsert);
     }
+}
+
+/*
+    Iterates through each key starting from root. 
+    If the key is found and the position is less that x.n, return the node.
+    If the key is not found and the node is a leaf, return NULL.
+    Otherwise, recursively pass the i-th child.
+*/
+
+Node* BTree::searchNodeKey(Node* nodeToSearch, int keyToSearch){
+    auto i = 0;
+    while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
+        i++;
+    }
+    if(i < nodeToSearch->num_keys && keyToSearch == nodeToSearch->keys[i]){
+        return nodeToSearch;
+    }
+    else if(nodeToSearch->isLeaf){
+        return nullptr;
+    }
+    return searchNodeKey(nodeToSearch->children[i], keyToSearch);
+}
+
+int BTree::findKey(Node* nodeToSearch, int keyToSearch){
+    auto i = 0;
+    while(i < nodeToSearch->num_keys && keyToSearch > nodeToSearch->keys[i]){
+        i++;
+    }
+    return i;
+}
+
+int BTree::findPredecessor(Node* x, int indexOfKey){
+    Node* current = x->children[indexOfKey];
+    while(!current->isLeaf){
+        current = current->children[current->num_keys];
+    }
+    return current->keys[current->num_keys-1];
+}
+
+int BTree::findSuccessor(Node* x, int indexOfKey){
+    Node* current = x->children[indexOfKey+1];
+    while(!current->isLeaf){
+        current = current->children[0];
+    }
+    return current->keys[0];
+}
+
+
+void BTree::borrowFromPrev(Node* parent, int indexToReplace){
+    Node* child = parent->children[indexToReplace];
+    Node* sibling = parent->children[indexToReplace-1];
+    for(auto i = child->num_keys-1; i >= 0; --i){
+        child->keys[i+1] = child->keys[i];
+    }
+    if(!child->isLeaf){
+        for(auto j = child->num_keys; j >= 0; --j){
+            child->children[j+1] = child->children[j];
+        }
+    }
+    child->keys[0] = parent->keys[indexToReplace-1];
+    if(!child->isLeaf){
+        child->children[0] = sibling->children[sibling->num_keys];
+    }
+    parent->keys[indexToReplace-1] = sibling->keys[sibling->num_keys-1];
+    child->num_keys++;
+    sibling->num_keys--;
+}
+
+void BTree::borrowFromNext(Node* parent, int indexToReplace){
+    Node* child = parent->children[indexToReplace];
+    Node* sibling = parent->children[indexToReplace+1];
+    child->keys[child->num_keys] = parent->keys[indexToReplace];
+    if(!child->isLeaf){
+        child->children[child->num_keys+1] = sibling->children[0];
+    }
+    parent->keys[indexToReplace] = sibling->keys[0];
+    for(auto i = 1; i < sibling->num_keys; ++i){
+        sibling->keys[i-1] = sibling->keys[i];
+    }
+    if(!sibling->isLeaf){
+        for(auto j = 1; j <= sibling->num_keys; ++j){
+            sibling->children[j-1] = sibling->children[j];
+        }
+    }
+    child->num_keys++;
+    sibling->num_keys--;
+}
+
+void BTree::merge(Node* parent, int indexOfKey){
+    Node* child = parent->children[indexOfKey];
+    Node* sibling = parent->children[indexOfKey+1];
+    child->keys[MIN_DEGREE-1] = parent->keys[indexOfKey];
+    for(auto i = 0; i < MIN_DEGREE-1; ++i){
+        child->keys[i+MIN_DEGREE] = sibling->keys[i];
+    }
+    if(!child->isLeaf){
+        for(auto j = 0; j < MIN_DEGREE; ++j){
+            child->children[j+MIN_DEGREE] = sibling->children[j];
+        }
+    }
+    for(auto i = indexOfKey+1; i < parent->num_keys; ++i){
+        parent->keys[i-1] = parent->keys[i];
+    }
+    for(auto i = indexOfKey+2; i <= parent->num_keys; ++i){
+        parent->children[i-1] = parent->children[i];
+    }
+    child->num_keys = 2*MIN_DEGREE - 1;
+    parent->num_keys--;
+    delete sibling;
+    // diskWrite(child);
+    // diskWrite(parent);
+}
+
+void BTree::fill(Node* x, int indexOfKey){
+    if(indexOfKey != 0 && x->children[indexOfKey-1]->num_keys >= MIN_DEGREE){
+        borrowFromPrev(x, indexOfKey);
+    }
+    else if(indexOfKey != x->num_keys && x->children[indexOfKey+1]->num_keys >= MIN_DEGREE){
+        borrowFromNext(x, indexOfKey);
+    }
+    else{
+        if(indexOfKey != x->num_keys){
+            merge(x, indexOfKey);
+        }
+        else{
+            merge(x, indexOfKey-1);
+        }
+    }
+}
+
+void BTree::removeFromLeaf(Node* x, int indexOfKey){
+    for(auto i = indexOfKey + 1; i < x->num_keys; ++i){
+        x->keys[i-1] = x->keys[i];
+    }
+    x->num_keys--;
+}
+
+void BTree::removeKeyHelper(Node* x, int keyToDelete){
+    int indexOfKey = findKey(x, keyToDelete);
+    if(indexOfKey < x->num_keys && x->keys[indexOfKey] == keyToDelete){
+        if(x->isLeaf){
+            removeFromLeaf(x, indexOfKey);
+        }
+        else{
+            removeFromNonLeaf(x, indexOfKey);
+        }
+    }
+    else{
+        if(x->isLeaf){
+            std::cout << "Key not found in the tree." << std::endl;
+            return;
+        }
+        bool isLastChild = (indexOfKey == x->num_keys);
+        if(x->children[indexOfKey]->num_keys < MIN_DEGREE){
+            fill(x, indexOfKey);
+        }
+        if(isLastChild && indexOfKey > x->num_keys){
+            removeKeyHelper(x->children[indexOfKey-1], keyToDelete);
+        }
+        else{
+            removeKeyHelper(x->children[indexOfKey], keyToDelete);
+        }
+    }
+}
+
+void BTree::removeFromNonLeaf(Node* x, int indexOfKey){
+    int key = x->keys[indexOfKey];
+    if(x->children[indexOfKey]->num_keys >= MIN_DEGREE){
+        int predecessor = findPredecessor(x, indexOfKey);
+        x->keys[indexOfKey] = predecessor;
+        removeKeyHelper(x->children[indexOfKey], predecessor);
+    }
+    else if(x->children[indexOfKey+1]->num_keys >= MIN_DEGREE){
+        int successor = findSuccessor(x, indexOfKey);
+        x->keys[indexOfKey] = successor;
+        removeKeyHelper(x->children[indexOfKey+1], successor);
+    }
+    else{
+        merge(x, indexOfKey);
+        removeKeyHelper(x->children[indexOfKey], key);
+    }
+}
+
+void BTree::removeKey(int keyToDelete){
+    Node* currentRoot = root;
+    removeKeyHelper(currentRoot, keyToDelete);
 }
